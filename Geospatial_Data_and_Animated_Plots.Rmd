@@ -1,0 +1,204 @@
+---
+title: "Geospatial_Data_Analysis_Visualization"
+author: "Serra Aksoy"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+```{r}
+library(osmdata)
+library(sf)
+library(tmap)
+```
+
+```{r}
+alps_bbox <- getbb("Alps)
+alps_bbox
+```
+
+```{r}
+alps_bbox_polygon <- getbb("Alps", format_out = "sf_polygon")
+alps_bbox_polygon
+```
+
+```{r}
+tmap_mode("plot")
+tm_shape(alps_bbox_polygon) +
+  tm_borders()
+```
+
+```{r}
+tmap_mode("view")
+tm_shape(alps_bbox_polygon) +
+  tm_borders(col = "darkblue")
+```
+
+```{r}
+dolomites_bbox_polygon <- getbb("Dolomites", format_out = "sf_polygon")
+dolomites_bbox_polygon
+```
+
+```{r}
+tmap_mode("view")
+tm_shape(dolomites_bbox_polygon) +
+  tm_borders(col = "pink")
+```
+
+# Exercise 2
+
+```{r}
+library(dplyr)
+library(osmdata)
+```
+
+```{r}
+dolomites_bbox <- getbb("Dolomites")
+
+wilderness_huts <- opq(bbox = dolomites_bbox) %>%
+  add_osm_feature(key = "tourism", value = "wilderness_hut") %>%
+  osmdata_sf()
+
+wilderness_huts_points <- wilderness_huts$osm_points
+wilderness_huts_points
+```
+
+```{r}
+num_wilderness_huts <- nrow(wilderness_huts_points)
+num_wilderness_huts
+```
+
+```{r}
+wilderness_huts_named <- wilderness_huts_points %>%
+  filter(!is.na(name))
+
+num_wilderness_huts_named <- nrow(wilderness_huts_named) 
+num_wilderness_huts_named
+wilderness_huts_named
+```
+
+```{r}
+class(wilderness_huts_named$ele)
+```
+
+```{r}
+wilderness_huts_named$ele <- as.numeric(wilderness_huts_named$ele)
+class(wilderness_huts_named$ele)
+```
+
+```{r}
+tmap_mode("view")
+tm_shape(wilderness_huts_named) + tm_dots(col = "ele", id = "name", 
+                                          palette = "viridis", popup.vars = c("name", "ele"))
+```
+
+```{r}
+selected_hut <- wilderness_huts_named[10, ]
+selected_hut$ele
+selected_hut$name
+```
+
+# Exercise 3
+
+```{r}
+library(tidyverse)
+library(gganimate)
+library(gifski)
+library(transformr)
+library(lubridate)
+```
+
+```{r}
+matches <- read_csv("/Users/picorays/Desktop/Serra/LMU/R/Graded_Exercise_4/data/matches.csv")
+matches
+```
+
+```{r}
+matches <- matches %>%
+  mutate(total_goals = home_team_score + away_team_score)
+
+goals_per_season <- matches %>%
+  group_by(season) %>%
+  summarize(total_goals = sum(total_goals, na.rm = TRUE))
+
+goals_per_season
+```
+
+```{r}
+ggplot(goals_per_season, aes(x = season, y = total_goals)) +
+  geom_line(color = "blue") +
+  labs(title = "Total Goals Per Season Over Time",
+       x = "Season",
+       y = "Total Goals Per Season")
+```
+
+```{r}
+ggplot(goals_per_season, aes(x = season, y = total_goals)) +
+  geom_line(color = "blue") +
+  labs(title = "Total Goals Per Season Over Time",
+       x = "Season",
+       y = "Total Goals Per Season") +
+  transition_reveal(season) +
+  enter_fade() +
+  exit_fade() +
+  ease_aes("linear")
+
+animated_plot
+```
+
+```{r}
+standings <- read_csv("/Users/picorays/Desktop/Serra/LMU/R/Graded_Exercise_4/data/standings.csv")
+
+standings
+```
+
+```{r}
+liverpool_data <- standings %>%
+  filter(team_name == "Liverpool") %>%
+  select(season, points, position)
+
+liverpool_data
+
+x_limits <- range(liverpool_data$season)
+y_limits_points <- range(liverpool_data$points)
+y_limits_position <- range(liverpool_data$position)
+y_limits <- range(c(y_limits_points, y_limits_position))
+```
+
+```{r}
+plot <- ggplot(liverpool_data, aes(x = season)) +
+  geom_line(aes(y = points, color = "Points")) +
+  geom_line(aes(y = position, color = "Position")) +
+  labs(title = "Liverpool FC: Points and Position Over Time",
+       x = "Season",
+       y = "Points / Position",
+       color = "Legend") +
+  theme_minimal() +
+  scale_x_continuous(limits = x_limits) +
+  scale_y_continuous(limits = y_limits) +
+  transition_reveal(season) +
+  ease_aes('linear')
+
+animated_plot <- animate(plot, duration = 10, fps = 30, end_pause = 10)
+animated_plot
+```
+
+```{r}
+changed_animated_plot <- ggplot(liverpool_data, aes(x = season)) +
+  geom_line(aes(y = points, color = "Points")) +
+  geom_line(aes(y = position, color = "Position")) +
+  labs(title = "Liverpool FC: Points and Position Over Time",
+       x = "Season",
+       y = "Points / Position",
+       color = "Legend") +
+  theme_minimal() +
+  transition_reveal(season) +
+  view_follow(fixed_y = TRUE)
+  ease_aes('linear')
+  
+animated_plot <- animate(changed_animated_plot, duration = 10, fps = 30, end_pause = 10)
+animated_plot
+```
+
+```{r}
+animated_plot <- animate(changed_animated_plot, renderer = gifski_renderer("/Users/picorays/Desktop/Serra/YouTube/Exercise-4/total_goals_per_season.gif"), duration = 10, fps = 30, end_pause = 10)
+```
